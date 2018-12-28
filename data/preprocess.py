@@ -17,8 +17,8 @@ def preprocess(use_csv, min_ship_count):
             return in_df.sample(base_rep_val, replace=(in_df.shape[0]<base_rep_val))
     
     if use_csv: 
-        balanced_train_df = pd.read_csv(join(DATA, 'balanced_train_df.csv'))
-        balanced_valid_df = pd.read_csv(join(DATA, 'balanced_train_df.csv'))
+        train_df = pd.read_csv(join(DATA, 'balanced_train_df.csv'))
+        valid_df = pd.read_csv(join(DATA, 'balanced_valid_df.csv'))
             
     else:
         masks = pd.read_csv(os.path.join(SHIP_DIR, 'train_ship_segmentations_v2.csv'))
@@ -37,34 +37,45 @@ def preprocess(use_csv, min_ship_count):
         unique_img_ids = unique_img_ids[unique_img_ids['file_size_kb']>50] # keep only 50kb files
         masks.drop(['ships'], axis=1, inplace=True)
         train_ids, valid_ids = train_test_split(unique_img_ids, 
-                            test_size = 0.3, 
+                            test_size = 0.01, 
                             stratify = unique_img_ids['ships'])
 
 
-        train_df = pd.merge(masks, train_ids)
-        valid_df = pd.merge(masks, valid_ids)
-        
-        print("Grouping ships")
-        train_df['grouped_ship_count'] = train_df['ships'].map(lambda x: (x+1)//2)
-        valid_df['grouped_ship_count'] = valid_df['ships'].map(lambda x: (x+1)//2)
-        
-        balanced_train_df = train_df.groupby('grouped_ship_count').apply(sample_ships)
-        balanced_valid_df = valid_df.groupby('grouped_ship_count').apply(sample_ships)
+        # train_df = pd.merge(masks, train_ids) ## on='ImageId'
+        # valid_df = pd.merge(masks, valid_ids) ## on='ImageId'
 
-        balanced_train_df.to_csv(join(DATA, "balanced_train_df.csv"), index=False)
-        balanced_valid_df.to_csv(join(DATA, "balanced_valid_df.csv"), index=False)
+        train_df = pd.merge(masks, train_ids, on='ImageId')
+        valid_df = pd.merge(masks, valid_ids, on='ImageId')
+
+        # print("Grouping ships")
+        # train_df['grouped_ship_count'] = train_df['ships'].map(lambda x: (x+1)//2)
+        # valid_df['grouped_ship_count'] = valid_df['ships'].map(lambda x: (x+1)//2)
+        
+        # balanced_train_df = train_df.groupby('grouped_ship_count').apply(sample_ships)
+        # balanced_valid_df = valid_df.groupby('grouped_ship_count').apply(sample_ships)
+
+        # balanced_train_df = balanced_train_df.groupby('ImageId')
+        # balanced_valid_df = balanced_valid_df.groupby('ImageId')
+
+
+        train_df.to_csv(join(DATA, "balanced_train_df.csv"), index=False)
+        valid_df.to_csv(join(DATA, "balanced_valid_df.csv"), index=False)
+
         
     # TRAINING 
     filename_train = join(DATA, 'balanced_train_df_shipgt_{0}.csv'.format(min_ship_count))
     if not os.path.exists(filename_train):
-        print("Creating new csv files")
-        ourBalanced_train_df = balanced_train_df[balanced_train_df['grouped_ship_count'] >= min_ship_count]
+        print("Creating new csv files: {}".format(filename_train))
+        ourBalanced_train_df = train_df[train_df['ships'] >= min_ship_count]
+        print("Original lenght: {}, result length : {}".format(len(train_df), len(ourBalanced_train_df)))
         ourBalanced_train_df.to_csv(filename_train, index=False)
     
     # VALIDATION
     filename_validation = join(DATA, 'balanced_valid_df_shipgt_{0}.csv'.format(min_ship_count))  
     if not os.path.exists(filename_validation):
-        ourBalanced_valid_df = balanced_valid_df[balanced_valid_df['grouped_ship_count'] >= min_ship_count]
+        print("Creating new csv files: {}".format(filename_validation))
+        ourBalanced_valid_df = valid_df[valid_df['ships'] >= min_ship_count]
+        print("Original lenght: {}, result length : {}".format(len(valid_df), len(ourBalanced_valid_df)))
         ourBalanced_valid_df.to_csv(filename_validation, index=False)
 
 
