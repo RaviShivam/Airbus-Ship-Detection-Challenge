@@ -1,4 +1,6 @@
 import sys
+from memory_profiler import profile
+
 import numpy as np
 
 import torch
@@ -10,6 +12,7 @@ from torch.utils.data import Dataset, DataLoader
 
 
 from tqdm import tqdm_notebook
+from tqdm import tqdm
 import gc; gc.enable() # memory is tight
 
 import traceback
@@ -20,15 +23,9 @@ import os
 import numpy as np # linear algebra
 
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-print ('asdfasdfadsf')
-
 from skimage.io import imread
-print ('asdfasdfadsf')
 
 import matplotlib.pyplot as plt
-
-print ('asdfasdfadsf')
-
 
 from skimage.transform import rescale, resize, downscale_local_mean
 from skimage import img_as_bool
@@ -40,7 +37,6 @@ from src import utils
 gc.enable()
 torch.backends.cudnn.benchmark=True
 
-print ('asdfasdfasdf')
 
 DATA = "../data/"
 MODELS = "../models"
@@ -76,7 +72,6 @@ class KaggleDataset(Dataset):
     def __len__(self):
         return len(self.image_ids)
     
-    
     def __getitem__(self, idx):
         rgb_path = os.path.join(TRAIN_IMAGE_DIR, self.image_ids[idx])
         c_img = imread(rgb_path)
@@ -100,6 +95,9 @@ class KaggleDataset(Dataset):
             c_img_s = c_img[x1:x1+crop_delta, x2:x2+crop_delta, :]
             c_img = c_img_s
             c_mask = c_mask_s
+
+            del c_img_s, c_mask_s
+        
 
         c_img = c_img.transpose(-1, 0, 1)
         c_mask = c_mask.transpose(-1, 0, 1)
@@ -230,6 +228,7 @@ class UNet(nn.Module):
         
         return sigmoid(x)
 
+@profile
 def train(net, criterion, optimizer, epochs, trainLoader, valLoader):
     print ('Training has begun ...')
     training_stats = []
@@ -246,7 +245,7 @@ def train(net, criterion, optimizer, epochs, trainLoader, valLoader):
         # Train with all available data.
         print("Training in epoch: {}".format(epoch))
         tcount = 0
-        for i, data in tqdm_notebook(enumerate(trainLoader), total = len(trainLoader)):
+        for i, data in tqdm(enumerate(trainLoader), total = len(trainLoader)):
             if i > 15:
                 break
             tcount += 1
@@ -274,8 +273,6 @@ def train(net, criterion, optimizer, epochs, trainLoader, valLoader):
         training_stats.append([running_loss, val_loss])
         pd.DataFrame(training_stats).to_csv(TRAINING_STATS, header = ['running_loss', 'val_loss'], index = False)
         
-        clear_output()
-        
         # Save model
         if (epoch%5==0):
             print("Saving the model at {} epochs".format(epoch))
@@ -285,14 +282,16 @@ def train(net, criterion, optimizer, epochs, trainLoader, valLoader):
         torch.cuda.empty_cache()
         print("Epoch: {}, running loss: {:.4f}, validation loss: {:.4f}".format(epoch, running_loss, val_loss))
         
+        del val_loss
         gc.collect()
-        
+
+@profile
 def test(model, validLoader, criterion,  save_im = False, progress_path = TRAIN_PROGRESS_IMAGES, group=None):
     im_c = 0
     loss_scores = []
     with torch.no_grad():
-        for i, data in tqdm_notebook(enumerate(validLoader), total=len(validLoader)):
-            if i > 15:
+        for i, data in tqdm(enumerate(validLoader), total=len(validLoader)):
+            if i > 2:
                 break
             X, y = data
             y_pred = model(X.cuda())
@@ -318,6 +317,8 @@ def test(model, validLoader, criterion,  save_im = False, progress_path = TRAIN_
                     fig.savefig(fname=figname, bbox_inches = 'tight', pad_inches = 0)
                     plt.close()
                     im_c += 1
+
+                    del fig, ax1, ax2
             
             del X,y, y_pred
 
@@ -362,4 +363,4 @@ validDataLoader   = torch.utils.data.DataLoader(
 # In[ ]:
 
 
-train(net, criterion, optimizer, 20, trainDataLoader, validDataLoader)
+train(net, criterion, optimizer, 1, trainDataLoader, validDataLoader)

@@ -27,7 +27,7 @@ def rle_decode(mask_rle, shape=(768, 768)):
         img[lo:hi] = 1
     return img.reshape(shape).T  # Needed to align to RLE direction
 
-def masks_as_image(in_mask_list):
+def masks_as_image(in_mask_list, verbose = 0):
     '''
     mask_rle: run-length as string formated (start length)
     shape: (height,width) of array to return 
@@ -39,4 +39,7 @@ def masks_as_image(in_mask_list):
     for mask in in_mask_list:
         if isinstance(mask, str):
             all_masks += rle_decode(mask)
+    if verbose:
+        print("Unique: {}".format(np.unique(all_masks)))
+    all_masks[all_masks>0] = 1
     return np.expand_dims(all_masks, -1)
