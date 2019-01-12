@@ -1,4 +1,11 @@
 import numpy as np
+import matplotlib.pyplot as plt
+from skimage.morphology import label
+
+# Encoding functions for found masks
+def multi_rle_encode(img):
+    labels = label(img[:, :, 0])
+    return [rle_encode(labels==k) for k in np.unique(labels[labels>0])]
 
 # ref: https://www.kaggle.com/paulorzp/run-length-encode-and-decode
 def rle_encode(img):
@@ -43,3 +50,45 @@ def masks_as_image(in_mask_list, verbose = 0):
         print("Unique: {}".format(np.unique(all_masks)))
     all_masks[all_masks>0] = 1
     return np.expand_dims(all_masks, -1)
+
+def show(x, y):
+    f, axarr = plt.subplots(1,2, figsize=(15, 15))
+    print (x.shape, y.shape)
+    axarr[0].imshow(x.transpose(-1, 1, 0))
+    axarr[1].imshow(y.transpose(-1, 1, 0)[:, :, 0])
+
+def save_im(X, y, x_title, y_title, figname):
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize = (20, 10))
+    ax1.imshow(X)
+    ax1.set_title(x_title)
+    ax2.imshow(y, cmap=plt.cm.gray)
+    ax2.set_title(y_title)
+    fig.savefig(fname=figname, bbox_inches = 'tight', pad_inches = 0)
+    plt.close()
+
+
+def image_pad(ip, pad_x_l=1, pad_x_r=1, pad_y_l=0, pad_y_r=0, constant_values=0):
+        if (ip.shape[0] == 3):
+            r = ip[0,:,:]
+            g = ip[1,:,:]
+            b = ip[2,:,:]
+            r = np.pad(r, pad_width=((pad_x_l, pad_x_r), (pad_y_l, pad_y_r)), mode='constant', constant_values=constant_values)
+            g = np.pad(g, pad_width=((pad_x_l, pad_x_r), (pad_y_l, pad_y_r)), mode='constant', constant_values=constant_values)
+            b = np.pad(b, pad_width=((pad_x_l, pad_x_r), (pad_y_l, pad_y_r)), mode='constant', constant_values=constant_values)
+
+            op = np.zeros((3, r.shape[0], r.shape[1]))
+            op[0,:,:] = r
+            op[1,:,:] = g
+            op[2,:,:] = b
+            return op
+
+        elif (ip.shape[0] == 1):
+            mask = np.pad(ip[0,:,:], pad_width=((pad_x_l, pad_x_r), (pad_y_l, pad_y_r)), mode='constant', constant_values=constant_values)
+            op = np.zeros((1, mask.shape[0], mask.shape[1]))
+            op[0, :, :] = mask
+            return op
+
+        else:
+            print (np.shape)
+            print ('Not an image')
+            return ip
